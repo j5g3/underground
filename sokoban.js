@@ -47,11 +47,11 @@ var
 	DOOR_EAST = 41,
 
 	SPRITES = {
-		0   : 71,
+		0   : EMPTY,
 		" " : FREE,
 		'@' : PLAYER,
 		"+" : PLAYER_TARGET,
-		"." : 32, 
+		"." : TARGET, 
 		// BOX
 		"$" : FREE, 
 		// PLACED BOX
@@ -97,8 +97,14 @@ var
 		}
 
 	}),
+	
+	////////////////////////////
+	//
+	// ENTITIES
+	//
+	////////////////////////////
 
-	Box = j5g3.Clip.extend({
+	Box = j5g3.gdk.Element.extend({
 
 		mapX: null, 
 		mapY: null,
@@ -108,41 +114,32 @@ var
 		{
 			this.add(game.spritesheet.sprite(BOX));
 			this.add_frame(game.spritesheet.sprite(PLACED_BOX));
-			
-			this.go(0).stop();
+		},
+		
+		after_push: function()
+		{
+			if (me.under === TARGET)
+				this.go(1);
 		},
 
 		push: function(position)
 		{
 		var
-			me = this,
-			map = this.world.map,
-			destination = map.get(position.next.x, position.next.y),
-			x = this.x + position.mx,
-			y = this.y + position.my
+			me = this
 		;
-			this.mapPos = position.next;
-			this.go_state('normal');
-			this.add(j5g3.tween({ 
+			me.go(0);
+			
+			me.under = me.world.move_tile(me.mapX, me.mapY, position.x, position.y);
+			me.mapX = position.x;
+			me.mapY = position.y;
+			
+			game.stage.add(j5g3.tween({ 
 				target: me,
-				to: { x: x, y: y }, 
+				to: { x: position.mx, y: position.my }, 
 				auto_remove: true, 
 				duration: 10,
-				on_remove: function() { 
-					if (destination == TARGET)
-					{
-						me.go_state('placed');
-						j5g3.gdk.loader.assets.coin.play();
-					}
-				} 
+				on_remove: me.after_push.bind(me)
 			}));
-				
-			map.set(position.next.x, position.next.y, destination === TARGET ? PLACED_BOX : BOX)
-				.set(position.x, position.y, position.current === PLACED_BOX ? TARGET : FREE)
-			;
-
-			this.world.setBox(position.x, position.y, undefined);
-			this.world.setBox(position.next.x, position.next.y, this);
 		}
 
 	}),
@@ -160,15 +157,17 @@ var
 		transition_in: j5g3.fx.Animate.fade_in,
 		transition_out: j5g3.fx.Animate.fade_out,
 		
-		on_remove: function()
+		do_remove: function()
 		{
+			this.remove();
+			
 			game.mice.on_fire = null;
 			game.scene(Level);
 		},
 
 		setup: function()
 		{
-			game.mice.on_fire = this.remove.bind(this);
+			game.mice.on_fire = this.do_remove.bind(this);
 			
 			this.add(j5g3.image(ASSETS.splash)
 				.stretch(game.stage.width, game.stage.height)
@@ -280,7 +279,7 @@ var
 		{
 			this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, function() {
 				this.animateTo(this.x, this.y, 'push_' + this.direction, 5, function() {
-					this.world.getBox(pos.x, pos.y).push(pos);
+					this.world.get_box(pos.x, pos.y).push(pos);
 					this.animateTo(this.x, this.y, 'push_' + this.direction, 5, function()
 					{
 						this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, this.on_remove);
@@ -384,7 +383,7 @@ var
 
 			n.current = sprite;
 			
-			if (sprite === BOX || sprite === PLACED_BOX)
+			if (sprite > 71) //=== BOX || sprite === PLACED_BOX)
 			{
 				// Check if box can be moved
 				nb = this.get_direction(direction, n.x, n.y);
@@ -472,16 +471,29 @@ var
 		setLevel: function(n) { this.level.text = ('Level: ' + n); }
 
 	}),
-
-	World = j5g3.Clip.extend({
+	
+	Map = j5g3.Class.extend({
 		
-		player: null,
 		raw: null,
-		data: null, 
-		boxes: null,
-		
+		data: null,
 		rows: 0,
 		cols: 0,
+		
+		load_box: function(i)
+		{
+		var
+			box = new Box({
+				mapX: i % (this.cols-1),
+				mapY: i / this.cols - 1 | 0,
+				world: this.world
+			}),
+			
+			s = this.walls.sprites.push(box)
+		;
+			this.floor.sprites[s] = this.floor.sprites[FREE];
+			
+			return s;
+		},
 		
 		load_wall: function(i)
 		{
@@ -496,36 +508,6 @@ var
 				sprite = 'desk';
 				
 			return SPRITES[sprite];
-		},
-		
-		update_frame: function()
-		{
-			this.player.update();	
-		},
-		
-		get_map: function(ss, fill)
-		{
-			return j5g3.map({
-				sprites: ss || j5g3.ary(80, 0, game.spritesheet.sprite(fill || EMPTY)),
-				tw: TW, th: TH,
-				offsetY: TO,
-				paint: j5g3.Paint.Isometric
-			});
-		},
-		
-		load_box: function(i)
-		{
-		var
-			box = new Box({
-				mapX: i % this.cols,
-				mapY: i / this.cols | 0
-			}),
-			
-			s = this.walls.sprites.push(box)
-		;
-			this.floor.sprites[s] = this.floor.sprites[FREE];
-			
-			return s;
 		},
 		
 		load_sprite: function(i)
@@ -558,7 +540,7 @@ var
 			return sprite;
 		},
 		
-		load: function(raw)
+		init: function(raw)
 		{
 		var
 			i = 0,
@@ -587,7 +569,7 @@ var
 			this.floor.width = this.width = l.x;
 			this.floor.height= this.height= l.y;
 		},
-
+		
 		/** 
 		 * Transform 2D Map to Isometric 
 		 */
@@ -609,7 +591,9 @@ var
 			return out;
 		},
 
-		/** Translates X and Y to Isometric */
+		/** 
+		 * Translates X and Y to Isometric 
+		 */
 		getXY: function(x, y, maxy)
 		{
 			maxy = maxy || this.data.length;
@@ -621,6 +605,51 @@ var
 				nx--;
 
 			return { x: nx, y: ny };
+		},
+		
+		set: function(x, y, val)
+		{
+			
+		},
+		
+		get: function(x, y)
+		{
+			return this.data[y][x];
+		}
+		
+	}),
+
+	World = j5g3.Clip.extend({
+		
+		player: null,
+		data: null, 
+		
+		walls: null,
+		floor: null,
+		
+		get_box: function(x, y)
+		{
+			return this.walls.sprites[this.walls.map[y][x]];
+		},
+		
+		update_frame: function()
+		{
+			this.player.update();	
+		},
+		
+		get_map: function(ss, fill)
+		{
+			return j5g3.map({
+				sprites: ss || j5g3.ary(80, 0, game.spritesheet.sprite(fill || EMPTY)),
+				tw: TW, th: TH,
+				offsetY: TO,
+				paint: j5g3.Paint.Isometric
+			});
+		},
+		
+		load: function(l)
+		{
+			this.data = new Map(l);
 		},
 		
 		setup: function()
