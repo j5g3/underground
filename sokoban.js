@@ -200,7 +200,7 @@ var
 				this.currentLevel = level;
 
 			this.world.load(LEVELS[this.currentLevel]);
-			this.center(this.world.player.mapX, this.world.player.mapY);
+			this.center(this.world.player.mapX, this.world.player.mapY, true);
 		},
 
 		on_move: function(ev)
@@ -215,23 +215,28 @@ var
 			);
 		},
 
-		center: function(mapX, mapY)
+		center: function(mapX, mapY, no_tween)
 		{
 		var
 			world = this.world,
 			x = world.walls.transform_x(mapX, mapY),
 			y = world.walls.transform_y(mapX, mapY),
-			pos = world.walls.to_iso(x, y)
+			pos = world.walls.to_iso(x, y),
+			nx = (game.stage.width - world.width)/2-(pos.x/25) |0,
+			ny = (game.stage.height - world.height)/2-(pos.y/25) |0
 		;
-			this.add(j5g3.tween({
-				target: this.world,
-				auto_remove: true,
-				duration: 10,
-				to: {
-					x: (game.stage.width - world.width)/2-(pos.x/25) |0,
-					y: (game.stage.height - world.height)/2-(pos.y/25) |0
-				}
-			}));
+			if (no_tween)
+				world.pos(nx, ny);
+			else
+				this.add(j5g3.tween({
+					target: this.world,
+					auto_remove: true,
+					duration: 10,
+					to: {
+						x: nx,
+						y: ny
+					}
+				}));
 		},
 
 		setup: function()
@@ -647,6 +652,9 @@ var
 			size = this.walls.to_iso(this.walls.map[0].length, this.walls.map.length);
 
 			this.size(size.x, size.y);
+
+			this.floor.size(size.x, size.y);
+			this.floor.cache();
 		},
 
 		setup_floor: function()
