@@ -127,16 +127,14 @@ var
 			walls = me.world.walls,
 			position = me.nextPos
 		;
-			walls.set_tile(me.mapX, me.mapY, me.under);
-
-			me.under = walls.get_tile(position.x, position.y);
+			walls.set_tile(me.mapX, me.mapY, undefined);
 			walls.set_tile(position.x, position.y, me.sprite);
 
 			me.mapX = position.x;
 			me.mapY = position.y;
 			me.pos(0,0);
 
-			me.go(me.under===TARGET ? 1 : 0);
+			me.go(me.world.is_target(me.mapX, me.mapY) ? 1 : 0);
 		},
 
 		push: function(position)
@@ -202,7 +200,7 @@ var
 				this.currentLevel = level;
 
 			this.world.load(LEVELS[this.currentLevel]);
-			this.center();
+			this.center(this.world.player.mapX, this.world.player.mapY);
 		},
 
 		on_move: function(ev)
@@ -212,22 +210,28 @@ var
 				up_right: 'ne',
 				down_left: 'sw',
 				down_right: 'se'
-			}[ev.direction]);
+			}[ev.direction],
+				this.center.bind(this)
+			);
 		},
 
-		center: function()
+		center: function(mapX, mapY)
 		{
-			/*
+		var
+			world = this.world,
+			x = world.walls.transform_x(mapX, mapY),
+			y = world.walls.transform_y(mapX, mapY),
+			pos = world.walls.to_iso(x, y)
+		;
 			this.add(j5g3.tween({
 				target: this.world,
 				auto_remove: true,
 				duration: 10,
 				to: {
-					x: pos.x,
-					y: pos.y
+					x: (game.stage.width - world.width)/2-(pos.x/25) |0,
+					y: (game.stage.height - world.height)/2-(pos.y/25) |0
 				}
 			}));
-			*/
 		},
 
 		setup: function()
@@ -266,13 +270,8 @@ var
 
 		move_to: function(x, y)
 		{
-		var
-			walls = this.world.walls
-		;
-			walls.set_tile(this.mapX, this.mapY, this.under);
-			this.under = walls.get_tile(x, y);
-			walls.set_tile(x, y, PLAYER);
-
+			this.world.walls.set_tile(this.mapX, this.mapY, undefined);
+			this.world.walls.set_tile(x, y, PLAYER);
 			this.mapX = x;
 			this.mapY = y;
 		},
@@ -284,6 +283,7 @@ var
 			this.go_state('idle_' + this.direction);
 			this.moving = false;
 			this.x = this.y = 0;
+
 		},
 
 		walk: function(position)
@@ -313,7 +313,7 @@ var
 
 		},
 
-		move: function(direction)
+		move: function(direction, fn)
 		{
 			if (this.moving)
 				return;
@@ -327,6 +327,9 @@ var
 			{
 				this.nextPos = pos;
 				this[pos.action](pos);
+				if (fn)
+					fn(pos.x, pos.y);
+
 			} else
 				this.idle();
 		},
@@ -550,6 +553,11 @@ var
 			return !tile;
 		},
 
+		is_target: function(x, y)
+		{
+			return this.floor.get_tile(x, y)===TARGET;
+		},
+
 		set_player: function(x, y, tile)
 		{
 		var
@@ -625,7 +633,8 @@ var
 		load: function(raw)
 		{
 		var
-			map = this.map = new Map(raw)
+			map = this.map = new Map(raw),
+			size
 		;
 			this.walls.map2d = j5g3.ary(map.cols, map.rows);
 			this.floor.map2d = j5g3.ary(map.cols, map.rows);
@@ -634,6 +643,10 @@ var
 
 			this.walls.transform();
 			this.floor.transform();
+
+			size = this.walls.to_iso(this.walls.map[0].length, this.walls.map.length);
+
+			this.size(size.x, size.y);
 		},
 
 		setup_floor: function()
