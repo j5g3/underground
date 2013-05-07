@@ -3,7 +3,10 @@
  */
 
 j5g3.ready(function() {
-var 
+'use strict';
+
+var
+	j5g3 = window.j5g3,
 	loader = j5g3.loader(),
 
 	ASSETS = {
@@ -14,7 +17,7 @@ var
 	},
 
 	LEVELS= [
-		
+
 	"  #####  \n###   ###\n#  $..$ #\n# # ##  #\n# # ##@##\n#  $..$# \n### #$ # \n  # . .# \n  #$# .# \n  #  $ # \n  ###  # \n    #### \n",
 	"###################\n#   ...  @  ...   #\n# $$$  #####  $$$ #\n##   ###   ###   ##\n ##  #       ##  #\n  ####        ####\n",
 	"  ####\n###  ##\n#   $ #\n# #.#@#\n# #$ .#\n#  .$ #\n##   ##\n #####\n",
@@ -51,9 +54,9 @@ var
 		" " : FREE,
 		'@' : PLAYER,
 		"+" : PLAYER_TARGET,
-		"." : TARGET, 
+		"." : TARGET,
 		// BOX
-		"$" : FREE, 
+		"$" : FREE,
 		// PLACED BOX
 		'*': FREE,
 		// WALLS
@@ -69,35 +72,35 @@ var
 
 	////////////////////////////////////////
 	//
-	// Game Engine 
+	// Game Engine
 	//
 	///////////////////////////////////////
 	Sokoban = j5g3.Engine.extend({
-		
+
 		stage_settings: {
 			width: 1280, height: 720
 		},
-		
+
 		mice: null,
 		spritesheet: null,
-		
+
 		scene: function(Scene)
 		{
 			this.stage.add(new Scene());
 		},
-		
+
 		startFn: function()
 		{
-			this.mice = mice(this.stage.canvas);
+			this.mice = window.mice(this.stage.canvas);
 			this.mice.module.mouse.capture_move = false;
-			
+
 			this.spritesheet = j5g3.spritesheet(ASSETS.spritesheet).grid(8,10);
-			
+
 			this.fps(32).run();
 		}
 
 	}),
-	
+
 	////////////////////////////
 	//
 	// ENTITIES
@@ -106,7 +109,7 @@ var
 
 	Box = j5g3.gdk.Element.extend({
 
-		mapX: null, 
+		mapX: null,
 		mapY: null,
 		world: null,
 
@@ -114,12 +117,26 @@ var
 		{
 			this.add(game.spritesheet.sprite(BOX));
 			this.add_frame(game.spritesheet.sprite(PLACED_BOX));
+			this.go(0);
 		},
-		
+
 		after_push: function()
 		{
-			if (me.under === TARGET)
-				this.go(1);
+		var
+			me = this,
+			walls = me.world.walls,
+			position = me.nextPos
+		;
+			walls.set_tile(me.mapX, me.mapY, me.under);
+
+			me.under = walls.get_tile(position.x, position.y);
+			walls.set_tile(position.x, position.y, me.sprite);
+
+			me.mapX = position.x;
+			me.mapY = position.y;
+			me.pos(0,0);
+
+			me.go(me.under===TARGET ? 1 : 0);
 		},
 
 		push: function(position)
@@ -127,16 +144,11 @@ var
 		var
 			me = this
 		;
-			me.go(0);
-			
-			me.under = me.world.move_tile(me.mapX, me.mapY, position.x, position.y);
-			me.mapX = position.x;
-			me.mapY = position.y;
-			
-			game.stage.add(j5g3.tween({ 
+			me.nextPos = position;
+			game.stage.add(j5g3.tween({
 				target: me,
-				to: { x: position.mx, y: position.my }, 
-				auto_remove: true, 
+				to: { x: position.mx, y: position.my },
+				auto_remove: true,
 				duration: 10,
 				on_remove: me.after_push.bind(me)
 			}));
@@ -149,43 +161,41 @@ var
 	/// SCENES
 	///
 	////////////////////////
-	
+
 	Splash = j5g3.gdk.Scene.extend({
-		
+
 		alpha: 0,
-		
+
 		transition_in: j5g3.fx.Animate.fade_in,
 		transition_out: j5g3.fx.Animate.fade_out,
-		
-		do_remove: function()
+
+		on_remove: function()
 		{
-			this.remove();
-			
 			game.mice.on_fire = null;
 			game.scene(Level);
 		},
 
 		setup: function()
 		{
-			game.mice.on_fire = this.do_remove.bind(this);
-			
+			game.mice.on_fire = this.remove.bind(this);
+
 			this.add(j5g3.image(ASSETS.splash)
 				.stretch(game.stage.width, game.stage.height)
 			);
 		}
 
 	}),
-	
+
 	Level = j5g3.gdk.Scene.extend({
 
 		currentLevel: 0,
 		alpha: 0,
-		
+
 		transition_in: j5g3.fx.Animate.fade_in,
 		transition_out: j5g3.fx.Animate.fade_out,
-		
+
 		world: null,
-		
+
 		restart: function(level)
 		{
 			if (level)
@@ -194,7 +204,7 @@ var
 			this.world.load(LEVELS[this.currentLevel]);
 			this.center();
 		},
-		
+
 		on_move: function(ev)
 		{
 			this.world.player.move({
@@ -204,24 +214,21 @@ var
 				down_right: 'se'
 			}[ev.direction]);
 		},
-		
+
 		center: function()
 		{
-		/*var
-			p = this.world.player,
-			pos = this.world.to_iso(p.x, p.y)
-		;
+			/*
 			this.add(j5g3.tween({
 				target: this.world,
 				auto_remove: true,
-				to: { 
+				duration: 10,
+				to: {
 					x: pos.x,
 					y: pos.y
 				}
 			}));
 			*/
 		},
-		
 
 		setup: function()
 		{
@@ -229,37 +236,52 @@ var
 			me = this,
 			background = j5g3.image(ASSETS.background)
 		;
-			me.add([ 
-				me.background = new j5g3.Stage({ 
+			me.add([
+				me.background = new j5g3.Stage({
 					width: game.stage.width,
 					height: game.stage.height,
 					canvas: j5g3.id('background'),
-					draw: j5g3.Draw.RootDirty 
+					draw: j5g3.Draw.RootDirty
 				}),
 				me.world = new World(),
 			]);
-			
+
 			me.background.add(background);
-			
+
 			game.mice.move = this.on_move.bind(this);
 			me.restart();
 		}
-		
+
 	}),
 
 	Player = j5g3.gdk.Element.extend({
-		
-		cx: 16,
-		cy: 48,
-		
+
+		cx: 20,
+		cy: 70,
+
 		world: null,
 		mapX: null,
 		mapY: null,
+		under: null,
 
-		on_remove: function()
+		move_to: function(x, y)
 		{
-			this.setMapXY();
-			this.go_state('idle_' + this.direction); 
+		var
+			walls = this.world.walls
+		;
+			walls.set_tile(this.mapX, this.mapY, this.under);
+			this.under = walls.get_tile(x, y);
+			walls.set_tile(x, y, PLAYER);
+
+			this.mapX = x;
+			this.mapY = y;
+		},
+
+		on_tween_remove: function()
+		{
+			this.move_to(this.nextPos.x, this.nextPos.y);
+
+			this.go_state('idle_' + this.direction);
 			this.moving = false;
 			this.x = this.y = 0;
 		},
@@ -267,11 +289,11 @@ var
 		walk: function(position)
 		{
 			this.animateTo(
-				position.mx, 
-				position.my, 
-				'walk_' + this.direction, 
-				10, 
-				this.on_remove
+				position.mx,
+				position.my,
+				'walk_' + this.direction,
+				10,
+				this.on_tween_remove
 			);
 		},
 
@@ -279,44 +301,28 @@ var
 		{
 			this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, function() {
 				this.animateTo(this.x, this.y, 'push_' + this.direction, 5, function() {
-					this.world.get_box(pos.x, pos.y).push(pos);
+
+					pos.current.push(pos.boxpos);
+
 					this.animateTo(this.x, this.y, 'push_' + this.direction, 5, function()
 					{
-						this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, this.on_remove);
+						this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, this.on_tween_remove);
 					});
 				});
 			});
 
 		},
 
-		setMapXY: function()
-		{
-		var
-			world = this.world,
-			map   = world.walls.map,
-			pos = world.getXY(this.mapX, this.mapY)
-		;
-		
-			map[pos.y][pos.x] = this.previousTile || FREE;
-			pos = world.getXY(this.nextPos.x, this.nextPos.y);
-			
-			this.previousTile = map[pos.y][pos.x];
-			map[pos.y][pos.x] = PLAYER;
-			
-			this.mapX = this.nextPos.x;
-			this.mapY = this.nextPos.y;
-		},
-
 		move: function(direction)
 		{
 			if (this.moving)
 				return;
-				
+
 		var
 			pos = this.check_direction(direction)
 		;
 			this.direction = direction;
-			
+
 			if (pos)
 			{
 				this.nextPos = pos;
@@ -324,7 +330,7 @@ var
 			} else
 				this.idle();
 		},
-		
+
 		idle: function()
 		{
 			this.go_state('idle_' + this.direction);
@@ -338,21 +344,21 @@ var
 			me.moving = true;
 			me.go_state(state);
 
-			game.stage.add(j5g3.tween({ 
+			game.stage.add(j5g3.tween({
 				target: me,
-				to: { x: x, y: y }, 
-				auto_remove: true, 
+				to: { x: x, y: y },
+				auto_remove: true,
 				duration: duration || 10,
-				on_remove: function() { 
+				on_remove: function() {
 					on_remove && on_remove.apply(me);
-				} 
+				}
 			}));
 		},
 
 		get_direction: function(direction, x, y)
 		{
 		var
-			nx = x || this.mapX, 
+			nx = x || this.mapX,
 			ny = y || this.mapY,
 			mx = TW/2, my = TH/4
 		;
@@ -364,8 +370,8 @@ var
 			case 'sw': ny++; mx*=-1; break;
 			}
 
-			return { 
-				x: nx, y: ny, 
+			return {
+				x: nx, y: ny,
 				mx: mx, my: my
 			};
 		},
@@ -373,30 +379,26 @@ var
 		check_direction: function(direction)
 		{
 		var
-			map = this.world.data,
-			n = this.get_direction(direction), 
-			nb, 
-			sprite = map[n.y][n.x]
+			map = this.world,
+			n = this.get_direction(direction),
+			sprite,
+			next
 		;
-			if (sprite >= WALLS[0] && sprite <= WALLS[1])
+			if (map.is_wall(n.x, n.y))
 				return false;
 
-			n.current = sprite;
-			
-			if (sprite > 71) //=== BOX || sprite === PLACED_BOX)
+			if ((sprite = map.is_box(n.x, n.y)))
 			{
-				// Check if box can be moved
-				nb = this.get_direction(direction, n.x, n.y);
-				sprite = map[nb.y][nb.x];
+				n.current = sprite;
+				n.boxpos = this.get_direction(direction, n.x, n.y);
 
-				if (sprite <= PLACED_BOX)
+				if (map.is_free(n.boxpos.x, n.boxpos.y))
+					n.action = 'push';
+				else
 					return false;
-
-				n.action = 'push';
-				n.next = nb;
 			} else
 				n.action = 'walk';
-			
+
 			return n;
 		},
 
@@ -407,7 +409,7 @@ var
 				.grid(13,10)
 		;
 			this.direction = 'ne';
-			
+
 			this.states({
 					idle_ne: [65],
 					idle_se: [91],
@@ -435,7 +437,7 @@ var
 
 		setup: function()
 		{
-		var 
+		var
 			me = this,
 			time = this.time  = j5g3.text('Time: 0').pos(20, 80)
 		;
@@ -445,7 +447,7 @@ var
 				me.moves = j5g3.text('Moves: 0').pos(20, 40),
 				me.pushes= j5g3.text('Pushes: 0').pos(20, 60),
 				time,
-				j5g3.action(function() { 
+				j5g3.action(function() {
 					var t = Date.now() - me.start_time;
 					time.text = ('Time: ' + Math.floor(t/1000));
 				})
@@ -471,210 +473,208 @@ var
 		setLevel: function(n) { this.level.text = ('Level: ' + n); }
 
 	}),
-	
+
 	Map = j5g3.Class.extend({
-		
+
 		raw: null,
-		data: null,
 		rows: 0,
 		cols: 0,
-		
-		load_box: function(i)
+
+		get_pos: function(i)
 		{
 		var
-			box = new Box({
-				mapX: i % (this.cols-1),
-				mapY: i / this.cols - 1 | 0,
-				world: this.world
-			}),
-			
-			s = this.walls.sprites.push(box)
+			result = {
+				x: i % (this.cols+1),
+				y: i / (this.cols+1) | 0
+			}
 		;
-			this.floor.sprites[s] = this.floor.sprites[FREE];
-			
-			return s;
+			return result;
 		},
-		
-		load_wall: function(i)
+
+		each: function(fn)
 		{
 		var
-			map = this.raw,
-			sprite = (map[i-1]==='#' ? 'l' : '') + 
-				(map[i+1]==='#' ? 'r' : '') + 
-				(map[i-this.cols-1]==='#' ? 't' : '') +
-				(map[i+this.cols+1]==='#' ? 'b' : '')
+			i = 0,
+			raw = this.raw,
+			l = raw.length,
+			pos
 		;
-			if (sprite==='')
-				sprite = 'desk';
-				
-			return SPRITES[sprite];
+			for (; i<l; i++)
+			{
+				if (raw[i]!=="\n")
+				{
+					pos = this.get_pos(i);
+					fn(raw[i], pos.x, pos.y, i);
+				}
+			}
 		},
-		
-		load_sprite: function(i)
+
+		init: function(raw)
+		{
+			this.raw = raw;
+			this.cols = raw.indexOf("\n");
+			this.rows = raw.split("\n").length;
+		}
+
+	}),
+
+	World = j5g3.Clip.extend({
+
+		player: null,
+		data: null,
+
+		walls: null,
+		floor: null,
+
+		is_wall: function(x, y)
 		{
 		var
-			sprite = this.raw[i]
+			tile = this.walls.get_tile(x, y)
 		;
+			return tile > WALLS[0] && tile < WALLS[1];
+		},
+
+		is_box: function(x, y)
+		{
+		var
+			tile = this.walls.get_tile(x, y)
+		;
+			return (tile >= this.box_start) && this.walls.sprites[tile];
+		},
+
+		is_free: function(x, y)
+		{
+		var
+			tile = this.walls.get_tile(x, y)
+		;
+			return !tile;
+		},
+
+		set_player: function(x, y, tile)
+		{
+		var
+			player = this.player
+		;
+			player.mapX = x;
+			player.mapY = y;
+
+			this.walls.map2d[y][x] = PLAYER;
+			this.floor.map2d[y][x] = tile;
+		},
+
+		load_sprite: function(sprite, x, y, i)
+		{
 			switch (sprite)
 			{
-			case '#': 
-				sprite = this.load_wall(i);
-				break;
-			case '+':
-			case '@':
-				this.player.mapX = i % (this.cols-1);
-				this.player.mapY = (i / this.cols - 1) | 0;
-				sprite = PLAYER;
-				break;
-			case '$':
-			case '*':
-				sprite = this.load_box(i);
+			case '#': return this.load_wall(x, y, i);
+			case '+': return this.set_player(x, y, TARGET);
+			case '@': return this.set_player(x, y, FREE);
+			case '$': return this.load_box(x, y, FREE);
+			case '*': return this.load_box(x, y, TARGET);
+			case '.':
+				this.floor.map2d[y][x] = TARGET;
 				break;
 			case '!':
 				//sprite = this.decorate(SPRITES[sprite], x, y);
 				break;
-			default: 
-				sprite = SPRITES[sprite];
+			default:
+				this.floor.map2d[y][x] = FREE;
 			}
-			
-			return sprite;
 		},
-		
-		init: function(raw)
+
+		load_box: function(x, y, sprite)
 		{
 		var
-			i = 0,
-			l = raw.length,
-			row = [],
-			data = this.data = [row]
+			box = new Box({
+				mapX: x,
+				mapY: y,
+				world: this
+			})
 		;
-			this.raw = raw;
-			this.cols = raw.indexOf("\n");
-			this.rows = 0;
-			
-			for (; i<l; i++)
-			{
-				if (raw[i]==="\n")
-				{
-					data.push(row = []);
-					this.rows++;
-				} else
-					row.push(this.load_sprite(i));
-			}
-			
-			this.floor.map = this.walls.map = this.transform();
-			
-			l = this.floor.to_iso(row.length, data.length);
-			
-			this.floor.width = this.width = l.x;
-			this.floor.height= this.height= l.y;
-		},
-		
-		/** 
-		 * Transform 2D Map to Isometric 
-		 */
-		transform: function()
-		{
-		var 
-			map = this.data,
-			x = map[0].length, y = map.length, 
-			l = y, n,
-			out = j5g3.ary(Math.ceil(y/2 + x/2), x+y, 71) 
-		;
-			while (y--)
-				for (x=0; x < map[y].length; x++)
-				{
-					n = this.getXY(x, y, l);
-					out[n.y][n.x] = map[y][x];
-				}
+			box.sprite = this.walls.sprites.push(box)-1;
 
-			return out;
+			if (!this.box_start)
+				this.box_start = box.sprite;
+
+			this.walls.map2d[y][x] = box.sprite;
+			this.floor.map2d[y][x] = sprite;
 		},
 
-		/** 
-		 * Translates X and Y to Isometric 
-		 */
-		getXY: function(x, y, maxy)
+		load_wall: function(x, y, i)
 		{
-			maxy = maxy || this.data.length;
 		var
-			ny = x+y,
-			nx = Math.floor((maxy-y)/2) + Math.round(x/2)
+			map = this.map.raw,
+			sprite = (map[i-1]==='#' ? 'l' : '') +
+				(map[i+1]==='#' ? 'r' : '') +
+				(map[i-this.map.cols-1]==='#' ? 't' : '') +
+				(map[i+this.map.cols+1]==='#' ? 'b' : '')
 		;
-			if ((y&1) && !(ny&1)) 
-				nx--;
+			if (sprite==='')
+				sprite = 'desk';
 
-			return { x: nx, y: ny };
+			this.walls.map2d[y][x] = SPRITES[sprite];
+			this.floor.map2d[y][x] = FREE;
 		},
-		
-		set: function(x, y, val)
-		{
-			
-		},
-		
-		get: function(x, y)
-		{
-			return this.data[y][x];
-		}
-		
-	}),
 
-	World = j5g3.Clip.extend({
-		
-		player: null,
-		data: null, 
-		
-		walls: null,
-		floor: null,
-		
-		get_box: function(x, y)
-		{
-			return this.walls.sprites[this.walls.map[y][x]];
-		},
-		
 		update_frame: function()
 		{
-			this.player.update();	
+			// Make sure player is animated.
+			this.player.update();
 		},
-		
-		get_map: function(ss, fill)
+
+		load: function(raw)
 		{
-			return j5g3.map({
-				sprites: ss || j5g3.ary(80, 0, game.spritesheet.sprite(fill || EMPTY)),
+		var
+			map = this.map = new Map(raw)
+		;
+			this.walls.map2d = j5g3.ary(map.cols, map.rows);
+			this.floor.map2d = j5g3.ary(map.cols, map.rows);
+
+			map.each(this.load_sprite.bind(this));
+
+			this.walls.transform();
+			this.floor.transform();
+		},
+
+		setup_floor: function()
+		{
+		var
+			free = game.spritesheet.sprite(FREE),
+			floor = this.floor = new j5g3.gdk.IsometricMap({
 				tw: TW, th: TH,
 				offsetY: TO,
-				paint: j5g3.Paint.Isometric
-			});
+				sprites: {}
+			})
+		;
+			floor.sprites[TARGET] = game.spritesheet.sprite(TARGET);
+			floor.sprites[FREE] = game.spritesheet.sprite(FREE);
 		},
-		
-		load: function(l)
+
+		setup_walls: function()
 		{
-			this.data = new Map(l);
+		var
+			walls = this.walls = new j5g3.gdk.IsometricMap({
+				tw: TW, th: TH,
+				offsetY: TO,
+				sprites: game.spritesheet.sprites()
+			})
+		;
+			walls.sprites[PLAYER] = this.player;
+
+			walls.sprites[FREE] = walls.sprites[TARGET] =
+			walls.sprites[EMPTY] = null;
 		},
-		
+
 		setup: function()
 		{
 		var
-			me = this,
-			ss = game.spritesheet,
-			floor = me.floor = me.get_map(null, FREE),
-			walls = me.walls = me.get_map(ss.sprites())
+			me = this
 		;
-			me.boxes = j5g3.clip();
-			me.player = new Player();
-			me.player.world = this;
-			
-			me.add([
-				floor,
-				walls
-			]);
-			
-			walls.sprites[FREE] = walls.sprites[TARGET] = 
-			floor.sprites[EMPTY] = walls.sprites[EMPTY] = null;
-			
-			floor.sprites[TARGET] = ss.sprite(TARGET);
-			
-			walls.sprites[PLAYER] = me.player;
+			me.player = new Player({ world: this });
+			me.setup_walls();
+			me.setup_floor();
+
+			me.add([ me.floor, me.walls ]);
 		},
 
 		/** Adds decoration sprite to both layers! */
@@ -692,7 +692,7 @@ var
 		}
 
 	}),
-	
+
 	game
 ;
 
