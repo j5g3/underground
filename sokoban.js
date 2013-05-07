@@ -83,6 +83,7 @@ var
 
 		mice: null,
 		spritesheet: null,
+		background: null,
 
 		scene: function(Scene)
 		{
@@ -92,67 +93,22 @@ var
 		startFn: function()
 		{
 			this.mice = window.mice(this.stage.canvas);
-			this.mice.module.mouse.capture_move = false;
-
 			this.spritesheet = j5g3.spritesheet(ASSETS.spritesheet).grid(8,10);
+
+			this.background = new j5g3.Stage({
+				width: this.stage.width,
+				height: this.stage.height,
+				canvas: j5g3.id('background'),
+				draw: j5g3.Draw.RootDirty
+			});
+
+			this.stage.add(this.background);
 
 			this.fps(32).run();
 		}
 
 	}),
 
-	////////////////////////////
-	//
-	// ENTITIES
-	//
-	////////////////////////////
-
-	Box = j5g3.gdk.Element.extend({
-
-		mapX: null,
-		mapY: null,
-		world: null,
-
-		setup: function()
-		{
-			this.add(game.spritesheet.sprite(BOX));
-			this.add_frame(game.spritesheet.sprite(PLACED_BOX));
-			this.go(0);
-		},
-
-		after_push: function()
-		{
-		var
-			me = this,
-			walls = me.world.walls,
-			position = me.nextPos
-		;
-			walls.set_tile(me.mapX, me.mapY, undefined);
-			walls.set_tile(position.x, position.y, me.sprite);
-
-			me.mapX = position.x;
-			me.mapY = position.y;
-			me.pos(0,0);
-
-			me.go(me.world.is_target(me.mapX, me.mapY) ? 1 : 0);
-		},
-
-		push: function(position)
-		{
-		var
-			me = this
-		;
-			me.nextPos = position;
-			game.stage.add(j5g3.tween({
-				target: me,
-				to: { x: position.mx, y: position.my },
-				auto_remove: true,
-				duration: 10,
-				on_remove: me.after_push.bind(me)
-			}));
-		}
-
-	}),
 
 	////////////////////////
 	///
@@ -170,7 +126,7 @@ var
 		on_remove: function()
 		{
 			game.mice.on_fire = null;
-			game.scene(Level);
+			game.scene(Menu);
 		},
 
 		setup: function()
@@ -181,6 +137,43 @@ var
 				.stretch(game.stage.width, game.stage.height)
 			);
 		}
+
+	}),
+
+	Menu = j5g3.gdk.Scene.extend({
+
+		alpha: 0,
+
+		transition_in: j5g3.fx.Animate.fade_in,
+
+		up: function()
+		{
+
+		},
+
+		down: function()
+		{
+
+		},
+
+		select: function()
+		{
+
+		},
+
+		setup: function()
+		{
+		var
+			m = game.mice
+		;
+			m.down = this.down.bind(this);
+			m.up = this.up.bind(this);
+			m.buttonY = this.select.bind(this);
+		}
+
+	}),
+
+	SelectLevel = j5g3.gdk.Scene.extend({
 
 	}),
 
@@ -246,19 +239,67 @@ var
 			background = j5g3.image(ASSETS.background)
 		;
 			me.add([
-				me.background = new j5g3.Stage({
-					width: game.stage.width,
-					height: game.stage.height,
-					canvas: j5g3.id('background'),
-					draw: j5g3.Draw.RootDirty
-				}),
 				me.world = new World(),
 			]);
 
-			me.background.add(background);
-
+			game.background.add(background);
+			game.background.invalidate();
 			game.mice.move = this.on_move.bind(this);
+
 			me.restart();
+		}
+
+	}),
+
+	////////////////////////////
+	//
+	// ENTITIES
+	//
+	////////////////////////////
+
+	Box = j5g3.gdk.Element.extend({
+
+		mapX: null,
+		mapY: null,
+		world: null,
+
+		setup: function()
+		{
+			this.add(game.spritesheet.sprite(BOX));
+			this.add_frame(game.spritesheet.sprite(PLACED_BOX));
+			this.go(0);
+		},
+
+		after_push: function()
+		{
+		var
+			me = this,
+			walls = me.world.walls,
+			position = me.nextPos
+		;
+			walls.set_tile(me.mapX, me.mapY, undefined);
+			walls.set_tile(position.x, position.y, me.sprite);
+
+			me.mapX = position.x;
+			me.mapY = position.y;
+			me.pos(0,0);
+
+			me.go(me.world.is_target(me.mapX, me.mapY) ? 1 : 0);
+		},
+
+		push: function(position)
+		{
+		var
+			me = this
+		;
+			me.nextPos = position;
+			game.stage.add(j5g3.tween({
+				target: me,
+				to: { x: position.mx, y: position.my },
+				auto_remove: true,
+				duration: 10,
+				on_remove: me.after_push.bind(me)
+			}));
 		}
 
 	}),
