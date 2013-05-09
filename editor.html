@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>J5G3 - Sokoban</title>
+	<link rel="stylesheet" href="../j5g3-gdk/css/j5g3-gdk.css" />
+	
+	<style>
+		#editor { 
+			border-radius: 8px; background: rgba(0, 0, 128, 0.5); 
+			padding: 10px; color: #eee; font: sans-serif;
+		}
+		label { margin-right: 10px; }
+		#data { width: 100%; height: 200px; margin-top: 10px; }
+	</style>
+</head>
+
+<div id="editor">
+	<label>Level:</label><select id="list">
+	</select>
+	<textarea id="data"></textarea>
+</div>
+
+<div id="stage">
+	<canvas id="background"></canvas>
+	<canvas id="screen"></canvas>
+</div>
+
+<script src="../j5g3/build/j5g3-all.dbg.js"></script>
+<script src="../j5g3-gdk/src/j5g3-gdk.js"></script>
+<script src="../j5g3-gdk/src/j5g3-gdk-isometric.js"></script>
+<script src="../j5g3-fx/src/j5g3-fx.js"></script>
+<script src="../mice.js/mice.js"></script>
+
+<script src="../cocoonjs/CocoonJS.js"></script>
+<script src="../cocoonjs/CocoonJS_App.js"></script>
+<script src="../cocoonjs/CocoonJS_App_ForCocoonJS.js"></script>
+
+<script>
+
+var
+	loader = j5g3.loader(),
+	
+	Sokoban = {
+		ASSETS: {
+			spritesheet_world: loader.img('spritesheet.png'),
+			spritesheet_player: loader.img('spritesheet-player.png'),
+			background: loader.img('background.jpg')
+		}
+	},
+	i, a,
+	val,
+	list = j5g3.id('list'),
+	data = j5g3.id('data'),
+	levels = loader.json('levels.json'),
+	
+	normalize = function()
+	{
+	var
+		map = val.data.split("\n"),
+		i = val.rows = map.length,
+		cols = 0
+	;
+		while (i--)
+			if (map[i].length > cols)
+				cols = map[i].length;
+		
+		val.cols = cols;
+			
+		for (i=0; i<val.rows; i++)
+			if (map[i].length < cols)
+				map[i] = map[i] + (new Array(cols-map[i].length+1)).join(" ");
+				
+		val.data = map.join("\n");
+	},
+	
+	load_map = function()
+	{
+		normalize();
+			
+		game.world.load(val);
+		game.world.stretch(game.stage.width, game.stage.height);
+	}
+;
+	loader.ready(function() {
+		
+		for(i in levels.json)
+			for (a in levels.json[i])
+			{
+				option = j5g3.dom('OPTION');
+				option.value = JSON.stringify(levels.json[i][a]);
+				option.innerHTML = i + ' - ' + 'Level ' + a;
+				list.appendChild(option);
+			}
+		
+		list.onchange = function()
+		{
+			val = JSON.parse(list.value);
+			data.value = val.data;
+			load_map();
+		};
+		
+		data.onkeyup = function()
+		{
+			val.data = data.value;
+			load_map();
+		};
+		
+		Sokoban.spritesheet = j5g3.spritesheet(Sokoban.ASSETS.spritesheet_world)
+			.grid(8, 10)
+		;
+		
+		window.game = j5g3.engine({
+			stage_settings: {
+				width: 1280, height: 720
+			},
+			world: null
+		});
+		
+		game.world = new Sokoban.World();
+		game.stage.add(game.world)
+		game.run();
+		
+		list.onchange();
+	})
+	
+</script>
+<script src="level.js"></script>
+
