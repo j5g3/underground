@@ -64,20 +64,24 @@ Sokoban.Box = j5g3.gdk.Element.extend({
 		this.go(this.world.is_target(this.mapX, this.mapY) ? 1 : 0);
 	},
 
-	after_push: function()
+	move_to: function(x, y)
 	{
 	var
 		me = this,
-		walls = me.world.walls,
-		position = me.nextPos
+		walls = me.world.walls
 	;
 		walls.set_tile(me.mapX, me.mapY, undefined);
-		walls.set_tile(position.x, position.y, me.sprite);
+		walls.set_tile(x, y, me.sprite);
 
-		me.mapX = position.x;
-		me.mapY = position.y;
+		me.mapX = x;
+		me.mapY = y;
 		me.pos(0,0);
 		me.check_target();
+	},
+
+	after_push: function()
+	{
+		this.move_to(this.nextPos.x, this.nextPos.y);
 	},
 
 	push: function(position)
@@ -159,15 +163,20 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 	var
 		pos = this.check_direction(direction)
 	;
+		pos.old_direction = this.direction;
 		this.direction = direction;
 
 		if (pos)
 		{
 			this.nextPos = pos;
+			pos.ix = this.mapX; pos.iy = this.mapY;
+
 			this[pos.action](pos);
+
 			if (fn)
 				fn(pos.x, pos.y);
 
+			return pos;
 		} else
 			this.idle();
 	},
@@ -212,6 +221,7 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 		}
 
 		return {
+			ix: x, iy: y,
 			x: nx, y: ny,
 			mx: mx, my: my
 		};
@@ -274,8 +284,42 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 Sokoban.Map = j5g3.Class.extend({
 
 	data: null,
-	rows: 0,
-	cols: 0,
+	rows: null,
+	cols: null,
+
+	init: function(raw)
+	{
+		j5g3.Class.apply(this, [ raw ]);
+
+		this.normalize();
+	},
+
+	/**
+	 * This function is so ugly. It makes sure map data is always the
+	 * same width.
+	 */
+	normalize: function()
+	{
+	var
+		map = this.data.split("\n"),
+		i = map.length,
+		cols = 0
+	;
+		if (this.rows===null)
+			this.rows = i;
+
+		while (i--)
+			if (map[i].length > cols)
+				cols = map[i].length;
+
+		this.cols = cols;
+
+		for (i=0; i<this.rows; i++)
+			if (map[i].length < cols)
+				map[i] = map[i] + (new Array(cols-map[i].length+1)).join(" ");
+
+		this.data = map.join("\n");
+	},
 
 	each: function(fn)
 	{
@@ -424,12 +468,10 @@ Sokoban.World = j5g3.Clip.extend({
 		this.walls.transform();
 		this.floor.transform();
 
-		size = this.walls.to_iso(this.walls.map[0].length, this.walls.map.length);
-
-		this.size(size.x, size.y);
-
-		this.floor.size(size.x, size.y);
+		this.size(this.floor.width, this.floor.height);
 		this.floor.cache();
+
+		this.invalidate();
 	},
 
 	setup_floor: function()
