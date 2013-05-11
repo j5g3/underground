@@ -224,7 +224,6 @@ var
 
 			move = dir ? player.move(dir, this.center.bind(this)) : false
 		;
-		console.log(ev.direction);
 			if (move)
 				this.history.push(move);
 		},
@@ -290,14 +289,70 @@ var
 			game.scene(Menu);
 		},
 
+		show_menu: function()
+		{
+			if (this.menu.anim)
+				return;
+
+			this.menu.anim = true;
+
+			if (this.menu.parent)
+				return this.hide_menu();
+
+			this.add(this.menu);
+			game.stage.add(j5g3.tween({
+				target: this.menu,
+				to: { y: 0 },
+				duration: 15,
+				auto_remove: true,
+				on_remove: function()
+				{
+					this.target.anim=false;
+				}
+			}));
+			game.stage.add(j5g3.tween({
+				target: this.menu_button,
+				to: { y: 50 },
+				duration: 15,
+				auto_remove: true
+			}));
+		},
+
+		hide_menu: function()
+		{
+			game.stage.add(j5g3.tween({
+				target: this.menu,
+				to: { y: -40 },
+				duration: 15,
+				auto_remove: true,
+				on_remove: function()
+				{
+					this.target.remove();
+					this.target.anim = false;
+				}
+			}));
+			game.stage.add(j5g3.tween({
+				target: this.menu_button,
+				to: { y: 10 },
+				duration: 15,
+				auto_remove: true
+			}));
+
+		},
+
 		setup: function()
 		{
 		var
 			me = this,
-			background = j5g3.image(Sokoban.ASSETS.background)
+			background = j5g3.image(Sokoban.ASSETS.background),
+			menu = me.menu = j5g3.clip({ y: -40 }),
+			menu_button = me.menu_button = new MenuItem({
+				y: 10, x: 1280/2,
+				label: "MENU",
+				on_click: me.show_menu.bind(this)
+			})
 		;
-			me.add([
-				me.world = new Sokoban.World(),
+			menu.add([
 				me.reset = new MenuItem({
 					y: 10, x: 10, label: "Reset",
 					on_click: this.reset.bind(this)
@@ -310,6 +365,11 @@ var
 					y: 10, x: 1180, label: 'Quit',
 					on_click: this.quit.bind(this)
 				})
+			]);
+
+			me.add([
+				me.world = new Sokoban.World(),
+				menu_button
 			]);
 
 			game.background.add(background);
