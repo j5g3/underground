@@ -98,6 +98,8 @@ var
 		width: 75,
 		height: 75,
 		id: null,
+		font: '30px sans-serif',
+		fill: '#eee',
 
 		at: j5g3.HitTest.Rect,
 
@@ -143,9 +145,12 @@ var
 
 		on_click: function()
 		{
+			this.on_mouse();
+
 			if (this.s)
 			{
 				this.s.on_click();
+				this.background.remove();
 				this.remove();
 			}
 		},
@@ -159,6 +164,10 @@ var
 			game.mice.move = this.on_mouse.bind(this);
 			game.mice.buttonY = this.on_click.bind(this);
 			game.mice.module.mouse.capture_move = true;
+
+			this.background = j5g3.image(Sokoban.ASSETS.background);
+			game.background.add(this.background);
+			game.background.invalidate();
 
 			for (i=0; i<levels.length; i++)
 			{
@@ -184,7 +193,6 @@ var
 
 		currentLevel: 0,
 		alpha: 0,
-		font: '30px sans-serif',
 
 		transition_in: j5g3.fx.Animate.fade_in,
 		transition_out: j5g3.fx.Animate.fade_out,
@@ -205,15 +213,18 @@ var
 		on_move: function(ev)
 		{
 		var
-			move = this.world.player.move({
+			dir = ({
 				up_left: 'nw',
 				up_right: 'ne',
 				down_left: 'sw',
 				down_right: 'se'
-			}[ev.direction],
-				this.center.bind(this)
-			)
+			}[ev.direction]),
+
+			player = this.world.player,
+
+			move = dir ? player.move(dir, this.center.bind(this)) : false
 		;
+		console.log(ev.direction);
 			if (move)
 				this.history.push(move);
 		},
@@ -308,7 +319,7 @@ var
 			game.mice.module.mouse.capture_move = false;
 			game.mice.buttonY = this.on_click.bind(this);
 
-			setTimeout(function() { me.restart(); });
+			setTimeout(function() { me.restart(); }, 0);
 		}
 
 	}),
