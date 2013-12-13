@@ -56,7 +56,7 @@ var
 
 			this.stage.add(this.background);
 
-			this.fps(32).run();
+			this.run();
 		}
 
 	}),
