@@ -19,7 +19,8 @@ var
 	Sokoban = window.Sokoban = j5g3.Engine.extend({
 
 		stage_settings: {
-			width: 1280, height: 720
+			width: 1280, height: 720,
+			container: true
 		},
 
 		mice: null,
@@ -38,25 +39,19 @@ var
 			if (this.mice)
 				this.mice.destroy();
 
-			this.mice = window.mice(this.stage.canvas);
+			this.mice = j5g3.in(this.stage.canvas);
 			this.stage.add(new Scene(opts));
 		},
 
 		startFn: function()
 		{
+			this.stageManager = new j5g3.gdk.StageManager(this.stage);
 			Sokoban.spritesheet = j5g3.spritesheet(Sokoban.ASSETS.spritesheet_world)
 				.grid(8, 10);
 
-			this.background = new j5g3.Stage({
-				width: this.stage.width,
-				height: this.stage.height,
-				canvas: j5g3.id('background'),
-				draw: j5g3.Draw.RootDirty
-			});
+			this.background = this.stage.layer({ background: true });
 
-			this.stage.add(this.background);
-
-			this.fps(32).run();
+			this.run();
 		}
 
 	}),
@@ -84,7 +79,7 @@ var
 		setup: function()
 		{
 			game.mice.on_fire = this.remove.bind(this);
-			game.mice.module.mouse.capture_move = false;
+			game.mice.module.Mouse.capture_move = false;
 
 			this.add(j5g3.image(Sokoban.ASSETS.splash)
 				.stretch(game.stage.width, game.stage.height)
@@ -95,11 +90,9 @@ var
 
 	MenuItem = j5g3.Clip.extend({
 
-		width: 75,
-		height: 75,
+		width: 100,
+		height: 100,
 		id: null,
-		font: '30px sans-serif',
-		fill: '#eee',
 
 		at: j5g3.HitTest.Rect,
 
@@ -108,10 +101,23 @@ var
 			game.scene(Level, { currentLevel: this.id });
 		},
 
+		hover: function(sel)
+		{
+			this.go(sel===false ? 0 : 1);
+		},
+
 		setup: function()
 		{
-			this.labelText = j5g3.text({ y: 30, text: this.label });
-			this.add(this.labelText);
+		var
+			a = Sokoban.ASSETS,
+			normal = j5g3.image(a['b'+this.id]).size(this.width, this.height),
+			hover = j5g3.image(a['r' + this.id]).size(this.width, this.height)
+		;
+			normal.paint = hover.paint = j5g3.Paint.ImageScaled;
+
+			this.add(normal)
+				.add_frame(hover)
+				.go(0).stop();
 		}
 
 	}),
@@ -119,11 +125,7 @@ var
 	Menu = j5g3.gdk.Scene.extend({
 
 		alpha: 0,
-
 		transition_in: j5g3.fx.Animate.fade_in,
-
-		font: '30px sans-serif',
-		fill: '#eee',
 
 		on_mouse: function()
 		{
@@ -133,23 +135,25 @@ var
 			if (this.s !== s)
 			{
 				if (this.s)
-					this.s.fill = null;
+					this.s.hover(false);
 
 				if (s)
 				{
 					this.s = s;
-					s.fill = '#e00';
+					s.hover();
 				}
 			}
+
+			return s;
 		},
 
 		on_click: function()
 		{
-			this.on_mouse();
+			var s = this.on_mouse();
 
-			if (this.s)
+			if (s)
 			{
-				this.s.on_click();
+				s.on_click();
 				this.background.remove();
 				this.remove();
 			}
@@ -159,11 +163,14 @@ var
 		{
 		var
 			levels = Sokoban.ASSETS.levels.json,
-			l, i, y = 0, x =0
+			l, i, y = 40, x =40
 		;
-			game.mice.move = this.on_mouse.bind(this);
-			game.mice.buttonY = this.on_click.bind(this);
-			game.mice.module.mouse.capture_move = true;
+			game.mice.on({
+				move: this.on_mouse.bind(this),
+				buttonY: this.on_click.bind(this)
+			});
+
+			game.mice.module.Mouse.capture_move = true;
 
 			this.background = j5g3.image(Sokoban.ASSETS.background);
 			game.background.add(this.background);
@@ -174,16 +181,14 @@ var
 				l = levels[i];
 
 				this.add(new MenuItem({
-					x: x, y: y,
-					id: i,
-					label: i
+					x: x, y: y, id: i
 				}));
 
-				if (x>800)
+				if (x>game.stage.width-200)
 				{
-					x=0; y+=90;
+					x=40; y+=150;
 				} else
-					x+=90;
+					x+=150;
 			}
 		}
 
@@ -226,6 +231,11 @@ var
 		;
 			if (move)
 				this.history.push(move);
+		},
+
+		on_btn: function(ev)
+		{
+
 		},
 
 		center: function(mapX, mapY, no_tween)
@@ -289,95 +299,62 @@ var
 			game.scene(Menu);
 		},
 
-		show_menu: function()
-		{
-			if (this.menu.anim)
-				return;
-
-			this.menu.anim = true;
-
-			if (this.menu.parent)
-				return this.hide_menu();
-
-			this.add(this.menu);
-			game.stage.add(j5g3.tween({
-				target: this.menu,
-				to: { y: 0 },
-				duration: 15,
-				auto_remove: true,
-				on_remove: function()
-				{
-					this.target.anim=false;
-				}
-			}));
-			game.stage.add(j5g3.tween({
-				target: this.menu_button,
-				to: { y: 50 },
-				duration: 15,
-				auto_remove: true
-			}));
-		},
-
-		hide_menu: function()
-		{
-			game.stage.add(j5g3.tween({
-				target: this.menu,
-				to: { y: -40 },
-				duration: 15,
-				auto_remove: true,
-				on_remove: function()
-				{
-					this.target.remove();
-					this.target.anim = false;
-				}
-			}));
-			game.stage.add(j5g3.tween({
-				target: this.menu_button,
-				to: { y: 10 },
-				duration: 15,
-				auto_remove: true
-			}));
-
-		},
-
 		setup: function()
 		{
 		var
 			me = this,
 			background = j5g3.image(Sokoban.ASSETS.background),
-			menu = me.menu = j5g3.clip({ y: -40 }),
-			menu_button = me.menu_button = new MenuItem({
-				y: 10, x: 1280/2,
-				label: "MENU",
-				on_click: me.show_menu.bind(this)
-			})
+			menu = me.menu = j5g3.clip({ y: 10 }),
+			controls = me.controls = j5g3.clip({ x: 10, y: 500, alpha: 0.7 })
 		;
 			menu.add([
-				me.reset = new MenuItem({
-					y: 10, x: 10, label: "Reset",
+				new MenuItem({
+					y: 10, x: 10, id: "reset", width: 80, height: 80,
 					on_click: this.reset.bind(this)
 				}),
-				me.back  = new MenuItem({
-					y: 10, x: 100, label: "Back",
+				new MenuItem({
+					y: 10, x: 100, id: "undo", width: 80, height: 80,
 					on_click: this.back.bind(this)
 				}),
-				me.quit = new MenuItem({
-					y: 10, x: 1180, label: 'Quit',
+				new MenuItem({
+					y: 10, x: 1180, id: 'back', width: 80, height: 80,
 					on_click: this.quit.bind(this)
+				}),
+			]);
+
+			controls.add([
+				new MenuItem({
+					x: 1150, id: "NE",
+					on_click: this.on_btn.bind(this)
+				}),
+				new MenuItem({
+					id: "NW",
+					on_click: this.on_btn.bind(this)
+				}),
+				new MenuItem({
+					y: 100, id: 'SW',
+					on_click: this.on_btn.bind(this)
+				}),
+				new MenuItem({
+					y: 100, x: 1150, id: 'SE',
+					on_click: this.on_btn.bind(this)
 				})
 			]);
 
 			me.add([
 				me.world = new Sokoban.World(),
-				menu_button
+				menu, controls
 			]);
 
 			game.background.add(background);
 			game.background.invalidate();
 
-			game.mice.move = this.on_move.bind(this);
-			game.mice.module.mouse.capture_move = false;
-			game.mice.buttonY = this.on_click.bind(this);
+			game.mice.on({
+				move: this.on_move.bind(this),
+				buttonY: this.on_click.bind(this)
+			});
+
+			game.mice.module.Mouse.capture_move = false;
 
 			setTimeout(function() { me.restart(); }, 0);
 		}
@@ -428,15 +405,31 @@ var
 
 	}),
 
-	game
+	game, i
 ;
 	Sokoban.ASSETS = {
 		spritesheet_world: loader.img('spritesheet.png'),
 		spritesheet_player: loader.img('spritesheet-player.png'),
 		splash: loader.img('splash.png'),
 		background: loader.img('background.jpg'),
+		floor: loader.img('floor.svg'),
+
+		rundo: loader.img('rundo.png'),
+		rback: loader.img('rback.png'),
+		rreset: loader.img('rreset.png'),
+		bundo: loader.img('bundo.png'),
+		bback: loader.img('bback.png'),
+		breset: loader.img('breset.png'),
+
 		levels: loader.json("levels.json")
 	};
+
+	([ 'NW', 'NE', 'SW', 'SE', 0,1,2,3,4,5,6,7,8,9])
+	.forEach(function(i)
+	{
+		Sokoban.ASSETS['b' + i] = loader.img('b'+i+'.svg');
+		Sokoban.ASSETS['r' + i] = loader.img('r'+i+'.svg');
+	});
 
 	loader.ready(function() {
 		game = window.game = new Sokoban();
