@@ -46,11 +46,7 @@ var
 		startFn: function()
 		{
 			this.stageManager = new j5g3.gdk.StageManager(this.stage);
-			Sokoban.spritesheet = j5g3.spritesheet(Sokoban.ASSETS.spritesheet_world)
-				.grid(8, 10);
-
 			this.background = this.stage.layer({ background: true });
-
 			this.run();
 		}
 
@@ -66,6 +62,7 @@ var
 	Splash = j5g3.gdk.Scene.extend({
 
 		alpha: 0,
+		fill: '#eee',
 
 		transition_in: j5g3.fx.Animate.fade_in,
 		transition_out: j5g3.fx.Animate.fade_out,
@@ -78,12 +75,23 @@ var
 
 		setup: function()
 		{
+			Sokoban.spritesheet = j5g3.spritesheet(Sokoban.ASSETS.spritesheet_world)
+				.grid(8, 10);
+
 			game.mice.on_fire = this.remove.bind(this);
 			game.mice.module.Mouse.capture_move = false;
 
-			this.add(j5g3.image(Sokoban.ASSETS.splash)
-				.stretch(game.stage.width, game.stage.height)
-			);
+			this.background = j5g3.image(Sokoban.ASSETS.background);
+			this.background.alpha = 0.5;
+
+			this.add([
+				this.background,
+				j5g3.sftext({ x: 40, y: 380, font: '120px "Audiowide"',
+					text: 'Underground' }),
+				j5g3.sftext({ x: 40, y: 580, font: '40px "Audiowide"',
+					text: 'Press any key to continue.'
+				})
+			]);
 		}
 
 	}),
@@ -163,7 +171,11 @@ var
 		{
 		var
 			levels = Sokoban.ASSETS.levels.json,
-			l, i, y = 40, x =40
+			l, i, y = 200, x =140,
+			text = j5g3.sftext({
+				fill: '#eee',
+				x: 320, y: 60, text: 'Select Destination', font: "60px 'Audiowide'"
+			})
 		;
 			game.mice.on({
 				move: this.on_mouse.bind(this),
@@ -176,6 +188,8 @@ var
 			game.background.add(this.background);
 			game.background.invalidate();
 
+			this.add(text);
+
 			for (i=0; i<levels.length; i++)
 			{
 				l = levels[i];
@@ -184,9 +198,9 @@ var
 					x: x, y: y, id: i
 				}));
 
-				if (x>game.stage.width-200)
+				if (x>game.stage.width-300)
 				{
-					x=40; y+=150;
+					x=140; y+=150;
 				} else
 					x+=150;
 			}
@@ -305,7 +319,9 @@ var
 			me = this,
 			background = j5g3.image(Sokoban.ASSETS.background),
 			menu = me.menu = j5g3.clip({ y: 10 }),
-			controls = me.controls = j5g3.clip({ x: 10, y: 500, alpha: 0.7 })
+			controls = me.controls = j5g3.clip({ x: 10, y: 500, alpha: 0.7 }),
+			bayN = j5g3.sftext({ y: 0, x: 480, fill: '#eee', text: '0' + this.currentLevel, font: "80px 'Audiowide', sans-serif" }),
+			bay = j5g3.sftext({ y: 40, x: 640, fill: '#eee', text: 'bay', font: "40px 'Audiowide', sans-serif" })
 		;
 			menu.add([
 				new MenuItem({
@@ -343,7 +359,7 @@ var
 
 			me.add([
 				me.world = new Sokoban.World(),
-				menu, controls
+				menu, controls, bayN, bay
 			]);
 
 			game.background.add(background);
@@ -405,7 +421,16 @@ var
 
 	}),
 
-	game, i
+	game, i,
+
+	loading = new j5g3.gdk.Loading({
+		loader: loader,
+
+		on_remove: function()
+		{
+			game.scene(Splash);
+		}
+	})
 ;
 	Sokoban.ASSETS = {
 		spritesheet_world: loader.img('spritesheet.png'),
@@ -431,9 +456,8 @@ var
 		Sokoban.ASSETS['r' + i] = loader.img('r'+i+'.svg');
 	});
 
-	loader.ready(function() {
-		game = window.game = new Sokoban();
-		game.scene(Splash);
-	});
+	game = window.game = new Sokoban();
+	game.stage.add(loading);
+	loading.align('center middle');
 
 })(this);
