@@ -6,7 +6,6 @@
 'use strict';
 
 var
-	CocoonJS = window.CocoonJS,
 	j5g3 = window.j5g3,
 
 	loader = j5g3.loader(),
@@ -96,114 +95,68 @@ var
 
 	}),
 
-	MenuItem = j5g3.Clip.extend({
-
-		width: 100,
-		height: 100,
-		id: null,
-
-		at: j5g3.HitTest.Rect,
-
-		on_click: function()
-		{
-			game.scene(Level, { currentLevel: this.id });
-		},
-
-		hover: function(sel)
-		{
-			this.go(sel===false ? 0 : 1);
-		},
-
-		setup: function()
-		{
-		var
-			a = Sokoban.ASSETS,
-			normal = j5g3.image(a['b'+this.id]).size(this.width, this.height),
-			hover = j5g3.image(a['r' + this.id]).size(this.width, this.height)
-		;
-			normal.paint = hover.paint = j5g3.Paint.ImageScaled;
-
-			this.add(normal)
-				.add_frame(hover)
-				.go(0).stop();
-		}
-
-	}),
-
 	Menu = j5g3.gdk.Scene.extend({
 
 		alpha: 0,
 		transition_in: j5g3.fx.Animate.fade_in,
+		fill: '#eee',
 
-		on_mouse: function()
+		setupButton: function(level, i)
 		{
 		var
-			s = this.at(game.mice.x, game.mice.y)
+			me = this,
+			bg = Sokoban.spritesheet.sprite(17).scale(0.8),
+			bgh= Sokoban.spritesheet.sprite(18).scale(0.8),
+			label = j5g3.text({ text: '0'+i, x: 50, y: 30, font: '30px Audiowide'}).align_text('center'),
+			labelh = j5g3.text({ text: '0'+i, x: 50, y: 30, font: '30px Audiowide'}).align_text('center')
 		;
-			if (this.s !== s)
-			{
-				if (this.s)
-					this.s.hover(false);
-
-				if (s)
+			this.buttons.add(new j5g3.gdk.Button({
+				width: 100, height: 100,
+				value: i,
+				states: {
+					normal: [ bg, label ],
+					hover: [ bgh, labelh ]
+				},
+				on_click: function()
 				{
-					this.s = s;
-					s.hover();
+					me.remove();
+					game.scene(Level, { currentLevel: this.value });
 				}
-			}
-
-			return s;
+			}));
 		},
 
-		on_click: function()
+		setupButtons: function()
 		{
-			var s = this.on_mouse();
+			var levels = Sokoban.ASSETS.levels.json;
 
-			if (s)
-			{
-				s.on_click();
-				this.background.remove();
-				this.remove();
-			}
+			this.buttons = new j5g3.gdk.ButtonGroup({
+				x: 140, y: 200, width: 1100, height: 600,
+				input: game.mice,
+				arrange: true, grid_x: 150, grid_y: 130
+			});
+
+			levels.forEach(this.setupButton.bind(this));
+
+			this.add(this.buttons);
+		},
+
+		setupBackground: function()
+		{
+			game.background.add(j5g3.image(Sokoban.ASSETS.background));
+			game.background.invalidate();
 		},
 
 		setup: function()
 		{
 		var
-			levels = Sokoban.ASSETS.levels.json,
-			l, i, y = 200, x =140,
 			text = j5g3.sftext({
-				fill: '#eee',
 				x: 320, y: 60, text: 'Select Destination', font: "60px 'Audiowide'"
 			})
 		;
-			game.mice.on({
-				move: this.on_mouse.bind(this),
-				buttonY: this.on_click.bind(this)
-			});
-
-			game.mice.module.Mouse.capture_move = true;
-
-			this.background = j5g3.image(Sokoban.ASSETS.background);
-			game.background.add(this.background);
-			game.background.invalidate();
+			this.setupButtons();
+			this.setupBackground();
 
 			this.add(text);
-
-			for (i=0; i<levels.length; i++)
-			{
-				l = levels[i];
-
-				this.add(new MenuItem({
-					x: x, y: y, id: i
-				}));
-
-				if (x>game.stage.width-300)
-				{
-					x=140; y+=150;
-				} else
-					x+=150;
-			}
 		}
 
 	}),
@@ -247,11 +200,6 @@ var
 				this.history.push(move);
 		},
 
-		on_btn: function(ev)
-		{
-
-		},
-
 		center: function(mapX, mapY, no_tween)
 		{
 		var
@@ -276,21 +224,12 @@ var
 				}));
 		},
 
-		on_click: function()
-		{
-		var
-			s = this.at(game.mice.x, game.mice.y)
-		;
-			if ((s instanceof MenuItem) && s.on_click)
-				s.on_click();
-		},
-
 		reset: function()
 		{
 			this.restart();
 		},
 
-		back: function()
+		undo: function()
 		{
 		var
 			action = this.history.pop(),
@@ -313,64 +252,48 @@ var
 			game.scene(Menu);
 		},
 
+		setupButton: function(img)
+		{
+			return new j5g3.gdk.Button({
+				width: 80, height: 80,
+				states: {
+					normal: j5g3.image(Sokoban.ASSETS['b'+ img ]),
+					hover: j5g3.image(Sokoban.ASSETS['r' + img ])
+				},
+				on_click: this[img].bind(this)
+			});
+		},
+
+		setupMenu: function()
+		{
+		var
+			menu = new j5g3.gdk.ButtonGroup({ input: game.mice })
+		;
+			menu.add([
+				this.setupButton('reset').pos(30, 10),
+				this.setupButton('undo').pos(130, 10),
+				this.setupButton('quit').pos(1160, 10)
+			]);
+
+			return menu;
+		},
+
 		setup: function()
 		{
 		var
 			me = this,
-			background = j5g3.image(Sokoban.ASSETS.background),
-			menu = me.menu = j5g3.clip({ y: 10 }),
-			controls = me.controls = j5g3.clip({ x: 10, y: 500, alpha: 0.7 }),
+			menu = this.setupMenu(),
 			bayN = j5g3.sftext({ y: 0, x: 480, fill: '#eee', text: '0' + this.currentLevel, font: "80px 'Audiowide', sans-serif" }),
 			bay = j5g3.sftext({ y: 40, x: 640, fill: '#eee', text: 'bay', font: "40px 'Audiowide', sans-serif" })
 		;
-			menu.add([
-				new MenuItem({
-					y: 10, x: 10, id: "reset", width: 80, height: 80,
-					on_click: this.reset.bind(this)
-				}),
-				new MenuItem({
-					y: 10, x: 100, id: "undo", width: 80, height: 80,
-					on_click: this.back.bind(this)
-				}),
-				new MenuItem({
-					y: 10, x: 1180, id: 'back', width: 80, height: 80,
-					on_click: this.quit.bind(this)
-				}),
-			]);
-
-			controls.add([
-				new MenuItem({
-					x: 1150, id: "NE",
-					on_click: this.on_btn.bind(this)
-				}),
-				new MenuItem({
-					id: "NW",
-					on_click: this.on_btn.bind(this)
-				}),
-				new MenuItem({
-					y: 100, id: 'SW',
-					on_click: this.on_btn.bind(this)
-				}),
-				new MenuItem({
-					y: 100, x: 1150, id: 'SE',
-					on_click: this.on_btn.bind(this)
-				})
-			]);
 
 			me.add([
 				me.world = new Sokoban.World(),
-				menu, controls, bayN, bay
+				menu, bayN, bay
 			]);
 
-			game.background.add(background);
 			game.background.invalidate();
-
-			game.mice.on({
-				move: this.on_move.bind(this),
-				buttonY: this.on_click.bind(this)
-			});
-
-			game.mice.module.Mouse.capture_move = false;
+			game.mice.on('move', this.on_move.bind(this));
 
 			setTimeout(function() { me.restart(); }, 0);
 		}
@@ -437,27 +360,18 @@ var
 		spritesheet_player: loader.img('spritesheet-player.png'),
 		splash: loader.img('splash.png'),
 		background: loader.img('background.jpg'),
-		floor: loader.img('floor.svg'),
 
 		rundo: loader.img('rundo.png'),
-		rback: loader.img('rback.png'),
+		rquit: loader.img('rback.png'),
 		rreset: loader.img('rreset.png'),
 		bundo: loader.img('bundo.png'),
-		bback: loader.img('bback.png'),
+		bquit: loader.img('bback.png'),
 		breset: loader.img('breset.png'),
 
 		levels: loader.json("levels.json")
 	};
 
-	([ 'NW', 'NE', 'SW', 'SE', 0,1,2,3,4,5,6,7,8,9])
-	.forEach(function(i)
-	{
-		Sokoban.ASSETS['b' + i] = loader.img('b'+i+'.svg');
-		Sokoban.ASSETS['r' + i] = loader.img('r'+i+'.svg');
-	});
-
 	game = window.game = new Sokoban();
 	game.stage.add(loading);
-	loading.align('center middle');
 
 })(this);

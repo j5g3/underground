@@ -54,8 +54,17 @@ Sokoban.Box = j5g3.gdk.Element.extend({
 
 	setup: function()
 	{
+		var placed = j5g3.clip()
+			.add(Sokoban.spritesheet.sprite(PLACED_BOX))
+			.add_frame(Sokoban.spritesheet.sprite(PLACED_BOX+1))
+			.add_frame(Sokoban.spritesheet.sprite(PLACED_BOX+2))
+			.add_frame(Sokoban.spritesheet.sprite(PLACED_BOX+1))
+			.go(0)
+		;
+		placed.st = 0.1;
+
 		this.add(Sokoban.spritesheet.sprite(BOX));
-		this.add_frame(Sokoban.spritesheet.sprite(PLACED_BOX));
+		this.add_frame(placed);
 		this.check_target();
 	},
 
@@ -349,6 +358,7 @@ Sokoban.World = j5g3.Clip.extend({
 
 	walls: null,
 	floor: null,
+	boxes: null,
 
 	is_wall: function(x, y)
 	{
@@ -426,6 +436,8 @@ Sokoban.World = j5g3.Clip.extend({
 
 		box.sprite = this.walls.sprites.push(box)-1;
 
+		this.boxes.push(box);
+
 		if (!this.box_start)
 			this.box_start = box.sprite;
 
@@ -450,8 +462,14 @@ Sokoban.World = j5g3.Clip.extend({
 
 	update_frame: function()
 	{
-		// Make sure player is animated.
-		this.player.update();
+		// Make sure player is animated since map doesnt update sprites.
+		if (this.boxes)
+		{
+			this.player.update();
+			this.boxes.forEach(function(box) {
+				box.update();
+			});
+		}
 	},
 
 	load: function(raw)
@@ -460,6 +478,7 @@ Sokoban.World = j5g3.Clip.extend({
 		map = this.map = new Sokoban.Map(raw),
 		size
 	;
+		this.boxes = [];
 		this.walls.map2d = j5g3.ary(map.cols, map.rows);
 		this.floor.map2d = j5g3.ary(map.cols, map.rows);
 
@@ -471,7 +490,7 @@ Sokoban.World = j5g3.Clip.extend({
 		this.size(this.floor.width, this.floor.height);
 		this.floor.cache();
 
-		this.invalidate();
+		//this.invalidate();
 	},
 
 	setup_floor: function()
