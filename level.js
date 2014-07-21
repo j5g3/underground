@@ -4,6 +4,7 @@
 var
 	j5g3 = window.j5g3,
 	Sokoban = window.Sokoban,
+	game = window.game,
 
 	// Tile Height, Width and Offset
 	TH = 192,
@@ -183,7 +184,7 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 			this.nextPos = pos;
 			pos.ix = this.mapX; pos.iy = this.mapY;
 
-			this[pos.action](pos, on_push);
+			pos.action.call(this, pos, on_push);
 
 			if (fn)
 				fn(pos.x, pos.y);
@@ -256,11 +257,11 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 			n.boxpos = this.get_direction(direction, n.x, n.y);
 
 			if (map.is_free(n.boxpos.x, n.boxpos.y))
-				n.action = 'push';
+				n.action = this.push;
 			else
 				return false;
 		} else
-			n.action = 'walk';
+			n.action = this.walk;
 
 		return n;
 	},
@@ -274,18 +275,18 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 		this.direction = 'ne';
 
 		this.states({
-				idle_ne: [65],
-				idle_se: [91],
-				idle_sw: [78],
-				idle_nw: [52],
-				push_ne: [65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77],
-				push_nw: [52,53,54,55,56,57,58,59,60,61,62,63,64],
-				push_se: [91,92,93,94,95,96,97,98,99,100, 101,102,103],
-				push_sw: [78,79,80,81,82,83,84,85,86,87,88,89,90],
-				walk_ne: [13, 14, 15, 16, 17, 18, 19],
-				walk_nw: [0, 1, 2, 3, 4, 5, 6, 7],
-				walk_se: [39, 40, 41, 42, 43, 44, 45],
-				walk_sw: [26, 27, 28, 29, 30, 31, 32]
+				'idle_ne': [65],
+				'idle_se': [91],
+				'idle_sw': [78],
+				'idle_nw': [52],
+				'push_ne': [65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77],
+				'push_nw': [52,53,54,55,56,57,58,59,60,61,62,63,64],
+				'push_se': [91,92,93,94,95,96,97,98,99,100, 101,102,103],
+				'push_sw': [78,79,80,81,82,83,84,85,86,87,88,89,90],
+				'walk_ne': [13, 14, 15, 16, 17, 18, 19],
+				'walk_nw': [0, 1, 2, 3, 4, 5, 6, 7],
+				'walk_se': [39, 40, 41, 42, 43, 44, 45],
+				'walk_sw': [26, 27, 28, 29, 30, 31, 32]
 			})
 			.go_state('idle_ne')
 		;

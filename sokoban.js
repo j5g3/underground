@@ -209,10 +209,10 @@ var
 		{
 		var
 			dir = ({
-				up_left: 'nw',
-				up_right: 'ne',
-				down_left: 'sw',
-				down_right: 'se'
+				'up_left': 'nw',
+				'up_right': 'ne',
+				'down_left': 'sw',
+				'down_right': 'se'
 			}[ev.direction]),
 
 			player = this.world.player,
@@ -248,12 +248,12 @@ var
 				}));
 		},
 
-		reset: function()
+		'reset': function()
 		{
 			game.dialog('Reset', 'Restart to original position?', this.restart.bind(this));
 		},
 
-		undo: function()
+		'undo': function()
 		{
 		var
 			action = this.history.pop(),
@@ -276,7 +276,7 @@ var
 			game.scene(Menu);
 		},
 
-		quit: function()
+		'quit': function()
 		{
 			game.dialog('Quit', 'Are you sure you want to quit?', this.doQuit.bind(this));
 		},
@@ -463,12 +463,12 @@ var
 		splash: loader.img('splash.png'),
 		background: loader.img('background.jpg'),
 
-		rundo: loader.img('rundo.png'),
-		rquit: loader.img('rback.png'),
-		rreset: loader.img('rreset.png'),
-		bundo: loader.img('bundo.png'),
-		bquit: loader.img('bback.png'),
-		breset: loader.img('breset.png'),
+		'rundo': loader.img('rundo.png'),
+		'rquit': loader.img('rback.png'),
+		'rreset': loader.img('rreset.png'),
+		'bundo': loader.img('bundo.png'),
+		'bquit': loader.img('bback.png'),
+		'breset': loader.img('breset.png'),
 		byes: loader.img('byes.png'),
 		bno: loader.img('bno.png'),
 
