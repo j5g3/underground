@@ -148,7 +148,7 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 		);
 	},
 
-	push: function(pos)
+	push: function(pos, on_done)
 	{
 		this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, function() {
 			this.animateTo(this.x, this.y, 'push_' + this.direction, 5, function() {
@@ -157,14 +157,17 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 
 				this.animateTo(this.x, this.y, 'push_' + this.direction, 5, function()
 				{
-					this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, this.on_tween_remove);
+					this.animateTo(this.x + pos.mx/2, this.y + pos.my/2, 'walk_' + this.direction, 5, function() {
+						this.on_tween_remove();
+						on_done && on_done();
+					});
 				});
 			});
 		});
 
 	},
 
-	move: function(direction, fn)
+	move: function(direction, fn, on_push)
 	{
 		if (this.moving)
 			return;
@@ -180,7 +183,7 @@ Sokoban.Player = j5g3.gdk.Element.extend({
 			this.nextPos = pos;
 			pos.ix = this.mapX; pos.iy = this.mapY;
 
-			this[pos.action](pos);
+			this[pos.action](pos, on_push);
 
 			if (fn)
 				fn(pos.x, pos.y);

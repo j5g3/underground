@@ -194,12 +194,15 @@ var
 
 		check_win: function()
 		{
+			var won = true;
+
 			this.world.boxes.forEach(function(box) {
 				if (!box.placed)
-					return false;
+					won = false;
 			});
 
-			return true;
+			if (won)
+				game.dialog("SUCCESS", "Go back to main menu?", this.doQuit.bind(this));
 		},
 
 		on_move: function(ev)
@@ -214,13 +217,10 @@ var
 
 			player = this.world.player,
 
-			move = dir ? player.move(dir, this.center.bind(this)) : false
+			move = dir ? player.move(dir, this.center.bind(this), this.check_win.bind(this)) : false
 		;
 			if (move)
-			{
 				this.history.push(move);
-				this.check_win();
-			}
 		},
 
 		center: function(mapX, mapY, no_tween)
@@ -238,6 +238,7 @@ var
 			else
 				this.add(j5g3.tween({
 					target: this.world,
+					on_remove: this.check_win.bind(this),
 					auto_remove: true,
 					duration: 10,
 					to: {
@@ -269,14 +270,15 @@ var
 				action.current.move_to(action.boxpos.ix, action.boxpos.iy);
 		},
 
+		doQuit: function()
+		{
+			this.remove();
+			game.scene(Menu);
+		},
+
 		quit: function()
 		{
-			var me=this;
-
-			game.dialog('Quit', 'Are you sure you want to quit?', function() {
-				me.remove();
-				game.scene(Menu);
-			});
+			game.dialog('Quit', 'Are you sure you want to quit?', this.doQuit.bind(this));
 		},
 
 		setupButton: function(img)
