@@ -42,6 +42,16 @@ var
 			this.stage.add(new Scene(opts));
 		},
 
+		dialog: function(title, message, on_yes)
+		{
+			var d = this._dialog || (this._dialog = new Dialog());
+
+			if (d.parent)
+				return;
+
+			this.stage.add(d.show(title, message, on_yes));
+		},
+
 		startFn: function()
 		{
 			this.stageManager = new j5g3.gdk.StageManager(this.stage);
@@ -182,6 +192,16 @@ var
 			this.center(this.world.player.mapX, this.world.player.mapY, true);
 		},
 
+		check_win: function()
+		{
+			this.world.boxes.forEach(function(box) {
+				if (!box.placed)
+					return false;
+			});
+
+			return true;
+		},
+
 		on_move: function(ev)
 		{
 		var
@@ -197,7 +217,10 @@ var
 			move = dir ? player.move(dir, this.center.bind(this)) : false
 		;
 			if (move)
+			{
 				this.history.push(move);
+				this.check_win();
+			}
 		},
 
 		center: function(mapX, mapY, no_tween)
@@ -226,7 +249,7 @@ var
 
 		reset: function()
 		{
-			this.restart();
+			game.dialog('Reset', 'Restart to original position?', this.restart.bind(this));
 		},
 
 		undo: function()
@@ -248,8 +271,12 @@ var
 
 		quit: function()
 		{
-			this.remove();
-			game.scene(Menu);
+			var me=this;
+
+			game.dialog('Quit', 'Are you sure you want to quit?', function() {
+				me.remove();
+				game.scene(Menu);
+			});
 		},
 
 		setupButton: function(img)
@@ -293,7 +320,7 @@ var
 			]);
 
 			game.background.invalidate();
-			game.mice.on('move', this.on_move.bind(this));
+			game.mice.on({'move': this.on_move.bind(this)});
 
 			setTimeout(function() { me.restart(); }, 0);
 		}
@@ -344,6 +371,79 @@ var
 
 	}),
 
+	Dialog = j5g3.gdk.Scene.extend({
+
+		x: 340,	y: 326,
+		width: 600, height: 394,
+
+		transition_in: j5g3.fx.Animate.slide_up,
+		transition_out: j5g3.fx.Animate.slide_down,
+		fill: '#eee',
+
+		show: function(title, message, on_yes, on_no)
+		{
+			var d = this;
+
+			d.title.text = title;
+			d.title.align_text('center');
+			d.message.text = message;
+			d.message.align_text('center');
+
+			d.yes.on_click = function() { d.remove(on_yes); };
+			d.no.on_click = function() { d.remove(on_no); };
+
+			this.btnGroup.disable();
+			this.btnGroup.input = game.mice;
+			this.btnGroup.enable();
+
+			if (!this.tween.parent)
+			{
+				this.y = 326;
+				this.enter();
+			}
+			this.tween.duration = 15;
+
+			return this;
+		},
+
+		remove: function(on_remove)
+		{
+			this.on_remove = on_remove;
+			this.btnGroup.disable();
+			j5g3.gdk.Scene.prototype.remove.call(this);
+			this.tween.duration = 15;
+		},
+
+		setupButtons: function()
+		{
+			this.btnGroup = new j5g3.gdk.ButtonGroup({
+				transform: this.M.to_m(this.x, 326),
+				block: true
+			});
+			this.yes = new j5g3.gdk.Button({
+				x: 150, y: 230, width: 80, height: 80,
+				states: { normal: Sokoban.ASSETS.byes }
+			});
+			this.no = new j5g3.gdk.Button({
+				x: 370, y: 230, width: 80, height: 80,
+				states: { normal: Sokoban.ASSETS.bno }
+			});
+
+			this.btnGroup.add([ this.yes, this.no ]);
+		},
+
+		setup: function()
+		{
+			this.title = j5g3.sftext({ alpha: 0.8, x: 300, y: 40, font: '70px Audiowide' });
+			this.message = j5g3.sftext({ alpha: 0.8, x: 300, y: 140, font: '26px Audiowide' });
+
+			this.setupButtons();
+
+			this.add([ Sokoban.ASSETS.dialog, this.title, this.message, this.btnGroup ]);
+		}
+
+	}),
+
 	game, i,
 
 	loading = new j5g3.gdk.Loading({
@@ -367,6 +467,10 @@ var
 		bundo: loader.img('bundo.png'),
 		bquit: loader.img('bback.png'),
 		breset: loader.img('breset.png'),
+		byes: loader.img('byes.png'),
+		bno: loader.img('bno.png'),
+
+		dialog: loader.img('dialog.png'),
 
 		levels: loader.json("levels.json")
 	};

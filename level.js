@@ -70,7 +70,7 @@ Sokoban.Box = j5g3.gdk.Element.extend({
 
 	check_target: function()
 	{
-		this.go(this.world.is_target(this.mapX, this.mapY) ? 1 : 0);
+		this.go(this.placed = this.world.is_target(this.mapX, this.mapY) ? 1 : 0);
 	},
 
 	move_to: function(x, y)
