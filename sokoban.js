@@ -55,7 +55,7 @@ var
 		startFn: function()
 		{
 			this.stageManager = new j5g3.gdk.StageManager(this.stage);
-			this.background = this.stage.layer({ background: true });
+			this.background = this.layer({ background: true });
 			this.run();
 		}
 
